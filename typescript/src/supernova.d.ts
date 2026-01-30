@@ -19,9 +19,18 @@ declare global {
       name: string,
       payload: string | number | object | Array<any> | Object
     )
+    export(fn: (sdk: Supernova, context: PulsarContext) => Promise<Array<AnyOutputFile>>)
   }
 
   const Pulsar: PulsarInterface
+
+  type PulsarContext = {
+    workspaceId?: string
+    dsId: string
+    versionId: string
+    brandId?: string | null
+    themeId?: string | null
+  }
 
   //
   // Enums
@@ -93,6 +102,8 @@ declare global {
     description: string
     tokenType: TokenType
     origin: SourceOrigin | null
+    properties?: Array<any>
+    propertyValues?: Record<string, any> | Array<any>
   }
 
   type ColorTokenValue = {
@@ -234,6 +245,51 @@ declare global {
     source: SourceType
     id: string | null
     name: string | null
+  }
+
+  type RemoteVersionIdentifier = {
+    designSystemId: string
+    versionId: string
+  }
+
+  type TokenTheme = {
+    id: string
+    name: string
+  }
+
+  type SupernovaTokensApi = {
+    getTokens(remote: RemoteVersionIdentifier): Promise<Array<Token>>
+    getTokenGroups(remote: RemoteVersionIdentifier): Promise<Array<TokenGroup>>
+    getTokenThemes(remote: RemoteVersionIdentifier): Promise<Array<TokenTheme>>
+    computeTokensByApplyingThemes(tokens: Array<Token>, themes: Array<TokenTheme>): Promise<Array<Token>>
+  }
+
+  type Supernova = {
+    tokens: SupernovaTokensApi
+  }
+
+  type OutputTextFile = {
+    relativePath: string
+    fileName: string
+    content: string
+  }
+
+  type OutputBinaryFile = {
+    relativePath: string
+    fileName: string
+    data: ArrayBuffer
+  }
+
+  type OutputCopyRemoteUrlFile = {
+    relativePath: string
+    fileName: string
+    url: string
+  }
+
+  type AnyOutputFile = OutputTextFile | OutputBinaryFile | OutputCopyRemoteUrlFile
+
+  const FileHelper: {
+    createTextFile: (args: { relativePath: string; fileName: string; content: string }) => OutputTextFile
   }
 } // declare global
 

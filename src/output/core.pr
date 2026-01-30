@@ -1,0 +1,6 @@
+{* Core layer output *}
+{[ let brand = ds.currentBrand() /]}
+{[ const allTokens = ds.allTokens(brand.id) /]}
+{[ const allGroups = ds.allTokenGroups(brand.id) /]}
+{[ const tree = generateLayerTree(allTokens, allGroups, ["core"]) /]}
+{{ objectToPrettyJson(tree.core || {}) }}

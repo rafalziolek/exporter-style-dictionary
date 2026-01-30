@@ -12,6 +12,8 @@
         "output": "output.json",
         "js": "src/js/compiled.js"
     },
+    "engine": "latest",
+    "executable": "src/js/compiled.js",
     "engines": {
         "pulsar": "1.0.0",
         "supernova": "1.0.0"
