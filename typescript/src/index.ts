@@ -22,15 +22,81 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
     baseTokenById[baseTokens[i].id] = baseTokens[i]
   }
 
-  // 3. Group base tokens by platform (core tokens are theme-independent)
+  // 3. Group base tokens by collection
   const baseGrouped = groupByPlatform(baseTokens, groups)
 
   // 4. Build output files
   const outputs: Array<AnyOutputFile> = []
+  
+  // Debug: show collection detection results
+  const debugCollections: any = {
+    counts: {
+      core: baseGrouped.core.length,
+      web: baseGrouped.web.length,
+      mobile: baseGrouped.mobile.length,
+      unknown: baseGrouped.unknown.length,
+    },
+    allCollectionValues: {} as Record<string, number>,
+    unknownTokenDetails: [],
+    sampleTokens: [],
+  }
+  
+  // Count all unique collection values
+  for (let i = 0; i < baseTokens.length; i++) {
+    const col = getTokenCollection(baseTokens[i])
+    debugCollections.allCollectionValues[col] = (debugCollections.allCollectionValues[col] || 0) + 1
+  }
+  
+  // Show details of unknown tokens (what collection do they have?)
+  for (let i = 0; i < Math.min(baseGrouped.unknown.length, 10); i++) {
+    const t = baseGrouped.unknown[i]
+    const props = (t as any).properties || []
+    const propValues = (t as any).propertyValues || {}
+    const group = findGroupForToken(t, groups)
+    
+    // Find collection property info
+    let collectionPropInfo: any = null
+    for (let j = 0; j < props.length; j++) {
+      const p = props[j]
+      if ((p.name || '').toLowerCase() === 'collection' || (p.codeName || '').toLowerCase() === 'collection') {
+        collectionPropInfo = {
+          name: p.name,
+          codeName: p.codeName,
+          id: p.id,
+          options: (p.options || []).map((o: any) => ({ id: o.id, name: o.name })),
+        }
+        break
+      }
+    }
+    
+    debugCollections.unknownTokenDetails.push({
+      name: t.name,
+      groupPath: group ? group.path : null,
+      hasCollectionProp: !!collectionPropInfo,
+      collectionPropInfo: collectionPropInfo,
+      propertyValueKeys: Object.keys(propValues),
+      rawPropertyValues: JSON.stringify(propValues).substring(0, 300),
+    })
+  }
+  
+  // Sample a few tokens from each group
+  const allSamples = [...baseGrouped.core.slice(0, 2), ...baseGrouped.web.slice(0, 2), ...baseGrouped.mobile.slice(0, 2)]
+  for (let i = 0; i < allSamples.length; i++) {
+    const t = allSamples[i]
+    const group = findGroupForToken(t, groups)
+    debugCollections.sampleTokens.push({
+      name: t.name,
+      collection: getTokenCollection(t),
+      groupPath: group ? group.path : null,
+      groupName: group ? group.name : null,
+    })
+  }
+  
+  outputs.push(createFile('_debug_collections.json', debugCollections))
 
   // Core tokens (always exported once, shared across all themes)
   if (baseGrouped.core.length > 0) {
-    const tree = buildTree(baseGrouped.core, groups, baseTokenById, 1)
+    const tree = buildTree(baseGrouped.core, groups, baseTokenById, 0)  // 0 = use full path
     outputs.push(createFile('core/core.json', tree))
   }
 
@@ -72,7 +138,7 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
       const platform = platforms[p]
       const platformTokens = (grouped as any)[platform] || []
       if (platformTokens.length > 0) {
-        const tree = buildTree(platformTokens, groups, tokenById, 1)
+        const tree = buildTree(platformTokens, groups, tokenById, 0)  // 0 = use full path
         outputs.push(createFile(platform + '/' + themeName + '.json', tree))
       }
     }
@@ -82,8 +148,50 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
 })
 
 // ============================================================================
-// GROUPING
+// GROUPING (by Collection property)
 // ============================================================================
+
+function getTokenCollection(token: Token): string {
+  const properties = (token as any).properties || []
+  const propertyValues = (token as any).propertyValues || {}
+  
+  // Find the Collection property definition
+  let collectionProp: any = null
+  for (let i = 0; i < properties.length; i++) {
+    const prop = properties[i]
+    const name = (prop.name || '').toLowerCase()
+    const codeName = (prop.codeName || '').toLowerCase()
+    if (name === 'collection' || codeName === 'collection') {
+      collectionProp = prop
+      break
+    }
+  }
+  
+  if (!collectionProp) return 'unknown'
+  
+  // Get the value - could be keyed by id or codeName
+  let rawValue = propertyValues[collectionProp.id] || propertyValues[collectionProp.codeName] || propertyValues['collection']
+  if (!rawValue) return 'unknown'
+  
+  // If it's an object with id, resolve from options
+  const valueId = typeof rawValue === 'string' ? rawValue : (rawValue.id || rawValue.value)
+  
+  // Find matching option
+  const options = collectionProp.options || []
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i]
+    if (opt.id === valueId || opt.value === valueId || opt.name === valueId) {
+      return (opt.name || opt.value || opt.id || 'unknown').toLowerCase()
+    }
+  }
+  
+  // Fallback: return the value itself if it's a string
+  if (typeof valueId === 'string') {
+    return valueId.toLowerCase()
+  }
+  
+  return 'unknown'
+}
 
 function groupByPlatform(
   tokens: Array<Token>,
@@ -98,15 +206,13 @@ function groupByPlatform(
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i]
-    const group = findGroupForToken(token, groups)
-    const path = group ? group.path : []
-    const platform = path.length > 0 ? path[0].toLowerCase() : 'unknown'
+    const collection = getTokenCollection(token)
 
-    if (platform === 'core') {
+    if (collection === 'core') {
       result.core.push(token)
-    } else if (platform === 'web') {
+    } else if (collection === 'web') {
       result.web.push(token)
-    } else if (platform === 'mobile') {
+    } else if (collection === 'mobile') {
       result.mobile.push(token)
     } else {
       result.unknown.push(token)
@@ -135,8 +241,32 @@ function buildTree(
     if ((token as any).isVirtual === true && token.tokenType === 'Shadow') {
       continue
     }
+    
+    // Skip tokens with underscore in name (internal/private tokens)
+    if (token.name.indexOf('_') !== -1) {
+      continue
+    }
 
     const group = findGroupForToken(token, groups)
+    
+    // Skip tokens in groups with underscore in name or path
+    if (group) {
+      // Check group name
+      if (group.name.indexOf('_') !== -1) {
+        continue
+      }
+      // Check group path
+      let hasUnderscoreInPath = false
+      for (let p = 0; p < group.path.length; p++) {
+        if (group.path[p].indexOf('_') !== -1) {
+          hasUnderscoreInPath = true
+          break
+        }
+      }
+      if (hasUnderscoreInPath) {
+        continue
+      }
+    }
     
     // Build full group path: group.path + group.name
     // e.g., path=["core"], name="border-radius" -> ["core", "border-radius"]
@@ -232,9 +362,15 @@ function formatValue(
       const ref = tokenById[value.color.referencedTokenId]
       if (ref) return '{' + buildRefPath(ref, groups) + '}'
     }
-    return toHex(value.color.r, value.color.g, value.color.b)
+    // Use formatColorValue to handle alpha properly
+    return formatColorValue(value)
   }
   if (typeof value.r === 'number' && typeof value.g === 'number') {
+    // Direct r/g/b (check for alpha too)
+    const alpha = typeof value.a === 'number' ? value.a : 1
+    if (alpha < 1) {
+      return toHexWithAlpha(value.r, value.g, value.b, alpha)
+    }
     return toHex(value.r, value.g, value.b)
   }
   if (value.hex) {
@@ -423,13 +559,34 @@ function formatColorValue(value: any): string {
   if (!value) return '#000000'
   if (typeof value === 'string') return value
   if (value.hex) return '#' + value.hex
+  
+  // Get RGB values
+  let r = 0, g = 0, b = 0
   if (value.color && typeof value.color.r === 'number') {
-    return toHex(value.color.r, value.color.g, value.color.b)
+    r = value.color.r
+    g = value.color.g
+    b = value.color.b
+  } else if (typeof value.r === 'number') {
+    r = value.r
+    g = value.g
+    b = value.b
   }
-  if (typeof value.r === 'number') {
-    return toHex(value.r, value.g, value.b)
+  
+  // Get alpha/opacity (0-1)
+  let alpha = 1
+  if (value.opacity && typeof value.opacity.measure === 'number') {
+    alpha = value.opacity.measure
+  } else if (typeof value.a === 'number') {
+    alpha = value.a
+  } else if (typeof value.alpha === 'number') {
+    alpha = value.alpha
   }
-  return '#000000'
+  
+  // Output with alpha if not fully opaque
+  if (alpha < 1) {
+    return toHexWithAlpha(r, g, b, alpha)
+  }
+  return toHex(r, g, b)
 }
 
 function toHex(r: number, g: number, b: number): string {
@@ -437,6 +594,14 @@ function toHex(r: number, g: number, b: number): string {
   const gh = Math.round(g).toString(16)
   const bh = Math.round(b).toString(16)
   return '#' + pad2(rh) + pad2(gh) + pad2(bh)
+}
+
+function toHexWithAlpha(r: number, g: number, b: number, a: number): string {
+  const rh = Math.round(r).toString(16)
+  const gh = Math.round(g).toString(16)
+  const bh = Math.round(b).toString(16)
+  const ah = Math.round(a * 255).toString(16)
+  return '#' + pad2(rh) + pad2(gh) + pad2(bh) + pad2(ah)
 }
 
 function pad2(s: string): string {
@@ -472,10 +637,10 @@ function buildRefPath(token: Token, groups: Array<TokenGroup>): string {
     fullGroupPath.push(groupName)
   }
   
-  // Build path: skip platform (index 0), include everything else + token name
-  // Result: "border-radius.1" or "semantic.color.primary"
+  // Build path: use full path (collection handles platform routing)
+  // Result: "color.500" or "semantic.color.primary"
   const parts: Array<string> = []
-  for (let i = 1; i < fullGroupPath.length; i++) {
+  for (let i = 0; i < fullGroupPath.length; i++) {
     parts.push(safeName(fullGroupPath[i]))
   }
   parts.push(safeName(token.name))
