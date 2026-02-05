@@ -379,7 +379,10 @@ function formatValue(
 
   // Dimension/Measure: has .measure and .unit
   if (typeof value.measure === 'number') {
-    return value.measure + formatUnit(value.unit)
+    return {
+      value: value.measure,
+      unit: formatUnit(value.unit)
+    }
   }
 
   // Text/String: has .text
@@ -400,14 +403,14 @@ function formatValue(
     return formatTypography(value, tokenById, groups)
   }
 
-  // Shadow: has .x, .y, .radius, .spread
-  if (value.x !== undefined && value.y !== undefined) {
-    return formatShadow(value, tokenById, groups)
+  // Shadow: Supernova provides array with shadow object(s)
+  if (Array.isArray(value) && value.length > 0 && value[0].x !== undefined && value[0].y !== undefined) {
+    return formatShadowArray(value, tokenById, groups)
   }
 
-  // Gradient: has .stops
-  if (value.stops && Array.isArray(value.stops)) {
-    return formatGradient(value, tokenById, groups)
+  // Gradient: Supernova provides array with gradient object(s)
+  if (Array.isArray(value) && value.length > 0 && value[0].stops) {
+    return formatGradient(value[0], tokenById, groups)
   }
 
   // Border: has .color and .width
@@ -477,32 +480,112 @@ function formatShadow(value: any, tokenById: Record<string, Token>, groups: Arra
     spread: formatMeasure(value.spread),
   }
 
+  // Handle color with full DTCG format
   if (value.color) {
-    if (value.color.referencedTokenId) {
-      const ref = tokenById[value.color.referencedTokenId]
-      result.color = ref ? '{' + buildRefPath(ref, groups) + '}' : formatColorValue(value.color)
-    } else {
-      result.color = formatColorValue(value.color)
+    // Extract color from nested structure (Supernova has color.color)
+    let colorValue = value.color
+    if (colorValue.color) {
+      colorValue = colorValue.color  // Unwrap nested color
     }
+    
+    // Check for color reference
+    if (colorValue.referencedTokenId) {
+      const ref = tokenById[colorValue.referencedTokenId]
+      result.color = ref ? '{' + buildRefPath(ref, groups) + '}' : null
+    }
+    
+    // Format color to full DTCG color object (not hex string)
+    if (!result.color && colorValue) {
+      const r = colorValue.r || 0
+      const g = colorValue.g || 0
+      const b = colorValue.b || 0
+      
+      // Get alpha from opacity if present
+      let alpha = 1
+      if (value.color.opacity && typeof value.color.opacity.measure === 'number') {
+        alpha = value.color.opacity.measure
+      }
+      
+      // DTCG requires RGB in 0-1 range, Supernova provides 0-255
+      result.color = {
+        colorSpace: 'srgb',
+        components: [r / 255, g / 255, b / 255],
+        alpha: alpha
+      }
+    }
+  }
+  
+  // Handle inset property (from Supernova's type field)
+  if (value.type) {
+    const typeStr = String(value.type).toLowerCase()
+    if (typeStr === 'inner' || typeStr === 'inset') {
+      result.inset = true
+    }
+    // Default is false (drop shadow), so no need to set explicitly
   }
 
   return result
 }
 
+function formatShadowArray(value: any, tokenById: Record<string, Token>, groups: Array<TokenGroup>): any {
+  const shadows: Array<any> = []
+  
+  for (let i = 0; i < value.length; i++) {
+    const shadow = value[i]
+    shadows.push(formatShadow(shadow, tokenById, groups))
+  }
+  
+  // Return array directly (DTCG supports both single object and arrays)
+  return shadows
+}
+
 function formatGradient(value: any, tokenById: Record<string, Token>, groups: Array<TokenGroup>): any {
   const stops: Array<any> = []
+  
   for (let i = 0; i < value.stops.length; i++) {
     const stop = value.stops[i]
+    
+    // Extract color from nested structure (Supernova has color.color)
+    let colorValue = stop.color
+    if (colorValue && colorValue.color) {
+      colorValue = colorValue.color  // Unwrap nested color
+    }
+    
+    // Check for color reference
+    let formattedColor
+    if (colorValue && colorValue.referencedTokenId) {
+      const ref = tokenById[colorValue.referencedTokenId]
+      formattedColor = ref ? '{' + buildRefPath(ref, groups) + '}' : null
+    }
+    
+    // Format color to full DTCG color object (not hex string)
+    if (!formattedColor && colorValue) {
+      const r = colorValue.r || 0
+      const g = colorValue.g || 0
+      const b = colorValue.b || 0
+      
+      // Get alpha from opacity if present
+      let alpha = 1
+      if (stop.color && stop.color.opacity && typeof stop.color.opacity.measure === 'number') {
+        alpha = stop.color.opacity.measure
+      }
+      
+      // DTCG requires RGB in 0-1 range, Supernova provides 0-255
+      formattedColor = {
+        colorSpace: 'srgb',
+        components: [r / 255, g / 255, b / 255],
+        alpha: alpha
+      }
+    }
+    
     stops.push({
-      position: stop.position || 0,
-      color: stop.color ? formatColorValue(stop.color) : '#000000',
+      color: formattedColor || { colorSpace: 'srgb', components: [0, 0, 0] },
+      position: stop.position || 0
     })
   }
-
-  return {
-    type: (value.type || 'linear').toLowerCase(),
-    stops: stops,
-  }
+  
+  // Return array directly (DTCG compliant) - not wrapped in object
+  return stops
 }
 
 function formatBorder(value: any, tokenById: Record<string, Token>, groups: Array<TokenGroup>): any {
@@ -546,13 +629,41 @@ function formatRadius(value: any, tokenById: Record<string, Token>, groups: Arra
 // PRIMITIVE FORMATTERS
 // ============================================================================
 
-function formatMeasure(value: any): string {
-  if (!value) return '0px'
-  if (typeof value === 'number') return value + 'px'
-  if (typeof value === 'string') return value
-  const measure = value.measure !== undefined ? value.measure : 0
-  const unit = formatUnit(value.unit)
-  return measure + unit
+function formatMeasure(value: any): any {
+  // If it's already a dimension object with value/unit, normalize it
+  if (value && typeof value === 'object' && value.value !== undefined && value.unit !== undefined) {
+    return {
+      value: value.value,
+      unit: formatUnit(value.unit)
+    }
+  }
+  
+  // If it's a number, create dimension object
+  if (typeof value === 'number') {
+    return {
+      value: value,
+      unit: 'px'
+    }
+  }
+  
+  // If it has measure/unit (Supernova format), convert
+  if (value && typeof value === 'object' && value.measure !== undefined) {
+    return {
+      value: value.measure,
+      unit: formatUnit(value.unit)
+    }
+  }
+  
+  // Fallback for backward compatibility (string values)
+  if (typeof value === 'string') {
+    return value
+  }
+  
+  // Default
+  return {
+    value: 0,
+    unit: 'px'
+  }
 }
 
 function formatColorValue(value: any): string {
