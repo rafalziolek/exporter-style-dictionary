@@ -39,6 +39,7 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
     allCollectionValues: {} as Record<string, number>,
     unknownTokenDetails: [],
     sampleTokens: [],
+    shadowTokens: [],
   }
   
   // Count all unique collection values
@@ -90,6 +91,33 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
       groupPath: group ? group.path : null,
       groupName: group ? group.name : null,
     })
+  }
+  
+  // Find and capture shadow tokens, especially secondary button box-shadow
+  for (let i = 0; i < baseTokens.length; i++) {
+    const t = baseTokens[i]
+    if (t.tokenType === 'Shadow' && (t as any).isVirtual !== true) {
+      const group = findGroupForToken(t, groups)
+      const value = (t as any).value
+      
+      // Look for secondary button shadow or capture first few shadows
+      const isSecondaryButton = t.name.toLowerCase().includes('secondary') || 
+                                (group && group.path.join('/').toLowerCase().includes('secondary'))
+      const isBoxShadow = t.name.toLowerCase().includes('box-shadow') ||
+                         t.name.toLowerCase().includes('box') ||
+                         (group && group.name.toLowerCase().includes('button'))
+      
+      if (isSecondaryButton || isBoxShadow || debugCollections.shadowTokens.length < 3) {
+        debugCollections.shadowTokens.push({
+          name: t.name,
+          tokenType: t.tokenType,
+          groupPath: group ? group.path : null,
+          groupName: group ? group.name : null,
+          fullPath: group ? [...group.path, group.name, t.name].join('.') : t.name,
+          valueStructure: JSON.parse(JSON.stringify(value)), // Deep clone
+        })
+      }
+    }
   }
   
   outputs.push(createFile('_debug_collections.json', debugCollections))
@@ -480,6 +508,15 @@ function formatShadow(value: any, tokenById: Record<string, Token>, groups: Arra
     spread: formatMeasure(value.spread),
   }
 
+  // Get alpha from shadow's opacity property (Supernova stores opacity at shadow level, not color level)
+  // Reference: https://developers.supernova.io/latest/sdk-reference/data-model/tokens/token-values-Hnb3ieu5#section-shadowtokenvalue-65
+  let alpha = 1
+  if (value.opacity && typeof value.opacity.measure === 'number') {
+    alpha = value.opacity.measure
+  } else if (typeof value.opacity === 'number') {
+    alpha = value.opacity
+  }
+
   // Handle color with full DTCG format
   if (value.color) {
     // Extract color from nested structure (Supernova has color.color)
@@ -499,12 +536,6 @@ function formatShadow(value: any, tokenById: Record<string, Token>, groups: Arra
       const r = colorValue.r || 0
       const g = colorValue.g || 0
       const b = colorValue.b || 0
-      
-      // Get alpha from opacity if present
-      let alpha = 1
-      if (value.color.opacity && typeof value.color.opacity.measure === 'number') {
-        alpha = value.color.opacity.measure
-      }
       
       // DTCG requires RGB in 0-1 range, Supernova provides 0-255
       result.color = {
