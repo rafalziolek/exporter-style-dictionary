@@ -17,10 +17,7 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
   const themes: Array<TokenTheme> = toArray<TokenTheme>(await sdk.tokens.getTokenThemes(remote))
 
   // 2. Build base token lookup map (for core tokens - they don't change with themes)
-  const baseTokenById: Record<string, Token> = {}
-  for (let i = 0; i < baseTokens.length; i++) {
-    baseTokenById[baseTokens[i].id] = baseTokens[i]
-  }
+  const baseTokenById = buildTokenMap(baseTokens)
 
   // 3. Group base tokens by collection
   const baseGrouped = groupByPlatform(baseTokens, groups)
@@ -138,10 +135,7 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
     const overriddenTokens: Array<Token> = toArray<Token>((theme as any).overriddenTokens || [])
     
     // Create a map of overridden tokens by ID
-    const overriddenById: Record<string, Token> = {}
-    for (let i = 0; i < overriddenTokens.length; i++) {
-      overriddenById[overriddenTokens[i].id] = overriddenTokens[i]
-    }
+    const overriddenById = buildTokenMap(overriddenTokens)
     
     // Merge: use overridden token if exists, otherwise use base token
     const themedTokens: Array<Token> = []
@@ -152,10 +146,7 @@ Pulsar.export(async (sdk: Supernova, context: PulsarContext): Promise<Array<AnyO
     }
     
     // Build token lookup for this theme
-    const tokenById: Record<string, Token> = {}
-    for (let i = 0; i < themedTokens.length; i++) {
-      tokenById[themedTokens[i].id] = themedTokens[i]
-    }
+    const tokenById = buildTokenMap(themedTokens)
     
     // Group themed tokens by platform
     const grouped = groupByPlatform(themedTokens, groups)
@@ -271,7 +262,7 @@ function buildTree(
     }
     
     // Skip tokens with underscore in name (internal/private tokens)
-    if (token.name.indexOf('_') !==-1) {
+    if (token.name.indexOf('_') !== -1) {
       continue
     }
 
@@ -296,17 +287,7 @@ function buildTree(
       }
     }
     
-    // Build full group path: group.path + group.name
-    // e.g., path=["core"], name="border-radius" -> ["core", "border-radius"]
-    const groupPath = group ? group.path : []
-    const groupName = group ? group.name : ''
-    const fullGroupPath: Array<string> = []
-    for (let j = 0; j < groupPath.length; j++) {
-      fullGroupPath.push(groupPath[j])
-    }
-    if (groupName && !group?.isRoot) {
-      fullGroupPath.push(groupName)
-    }
+    const fullGroupPath = buildFullGroupPath(group)
     
     // Build the nested path: skip platform (and optionally more levels)
     const pathParts = fullGroupPath.slice(skipLevels)
@@ -342,41 +323,42 @@ function setNested(obj: any, path: Array<string>, value: any): void {
 // TOKEN FORMATTING (DTCG)
 // ============================================================================
 
+function resolveTokenType(token: Token, groups: Array<TokenGroup>): string {
+  if (isFontWeightToken(token, groups)) return 'fontWeight'
+  if (isLineHeightToken(token, groups)) return 'number'
+  return mapType(token.tokenType)
+}
+
 function formatToken(
   token: Token,
   tokenById: Record<string, Token>,
   groups: Array<TokenGroup>
 ): any {
   const value = (token as any).value
-  
-  // Check for font-weight token (Figma imports these incorrectly as dimensions)
-  const isFontWeight = isFontWeightToken(token, groups)
-  
-  // Check for line-height token (Figma imports these incorrectly as dimensions)
-  const isLineHeight = isLineHeightToken(token, groups)
-  
+  const $type = resolveTokenType(token, groups)
+
   // Check for top-level reference FIRST
   if (value && value.referencedTokenId) {
     const refToken = tokenById[value.referencedTokenId]
     if (refToken) {
       return {
         $value: '{' + buildRefPath(refToken, groups) + '}',
-        $type: isFontWeight ? 'fontWeight' : isLineHeight ? 'number' : mapType(token.tokenType),
+        $type,
       }
     }
   }
 
-  // Format raw value - handle font-weight and line-height specially
-  const formatted = isFontWeight 
-    ? formatFontWeightValue(value)
-    : isLineHeight
-    ? formatLineHeightValue(value)
-    : formatValue(value, token.tokenType, tokenById, groups)
-  
-  const result: any = {
-    $value: formatted,
-    $type: isFontWeight ? 'fontWeight' : isLineHeight ? 'number' : mapType(token.tokenType),
+  // Format raw value
+  let formatted
+  if ($type === 'fontWeight') {
+    formatted = extractNumericValue(value, 400)
+  } else if ($type === 'number' && isLineHeightToken(token, groups)) {
+    formatted = extractNumericValue(value, 1.5)
+  } else {
+    formatted = formatValue(value, token.tokenType, tokenById, groups)
   }
+
+  const result: any = { $value: formatted, $type }
 
   if (token.description && token.description.length > 0) {
     result.$description = token.description
@@ -466,40 +448,13 @@ function formatValue(
   return value
 }
 
-function formatFontWeightValue(value: any): number {
-  // Extract numeric value from dimension object
+function extractNumericValue(value: any, fallback: number): number {
   if (value && typeof value === 'object') {
     const measure = value.measure ?? value.value
-    if (typeof measure === 'number') {
-      return measure  // Return plain number, no unit
-    }
+    if (typeof measure === 'number') return measure
   }
-  
-  // Fallback to direct number
-  if (typeof value === 'number') {
-    return value
-  }
-  
-  // Default fallback
-  return 400
-}
-
-function formatLineHeightValue(value: any): number {
-  // Extract numeric value from dimension object
-  if (value && typeof value === 'object') {
-    const measure = value.measure ?? value.value
-    if (typeof measure === 'number') {
-      return measure  // Return plain number, no unit (e.g., 1.15, not "1.15px")
-    }
-  }
-  
-  // Fallback to direct number
-  if (typeof value === 'number') {
-    return value
-  }
-  
-  // Default fallback (normal line-height)
-  return 1.5
+  if (typeof value === 'number') return value
+  return fallback
 }
 
 // ============================================================================
@@ -786,11 +741,7 @@ function toHex(r: number, g: number, b: number): string {
 }
 
 function toHexWithAlpha(r: number, g: number, b: number, a: number): string {
-  const rh = Math.round(r).toString(16)
-  const gh = Math.round(g).toString(16)
-  const bh = Math.round(b).toString(16)
-  const ah = Math.round(a * 255).toString(16)
-  return '#' + pad2(rh) + pad2(gh) + pad2(bh) + pad2(ah)
+  return toHex(r, g, b) + pad2(Math.round(a * 255).toString(16))
 }
 
 function pad2(s: string): string {
@@ -814,20 +765,8 @@ function formatUnit(unit: any): string {
 
 function buildRefPath(token: Token, groups: Array<TokenGroup>): string {
   const group = findGroupForToken(token, groups)
-  const groupPath = group ? group.path : []
-  const groupName = group ? group.name : ''
+  const fullGroupPath = buildFullGroupPath(group)
   
-  // Build full group path: group.path + group.name
-  const fullGroupPath: Array<string> = []
-  for (let i = 0; i < groupPath.length; i++) {
-    fullGroupPath.push(groupPath[i])
-  }
-  if (groupName && !group?.isRoot) {
-    fullGroupPath.push(groupName)
-  }
-  
-  // Build path: use full path (collection handles platform routing)
-  // Result: "color.500" or "semantic.color.primary"
   const parts: Array<string> = []
   for (let i = 0; i < fullGroupPath.length; i++) {
     parts.push(safeName(fullGroupPath[i]))
@@ -841,48 +780,45 @@ function buildRefPath(token: Token, groups: Array<TokenGroup>): string {
 // TYPE MAPPING
 // ============================================================================
 
+const DTCG_TYPE_MAP: Record<string, string> = {
+  // Standard types
+  color: 'color',
+  typography: 'typography',
+  fontfamily: 'fontFamily',
+  fontweight: 'fontWeight',
+  shadow: 'shadow',
+  border: 'border',
+  gradient: 'gradient',
+  duration: 'duration',
+  // Dimension-like types
+  dimension: 'dimension',
+  measure: 'dimension',
+  size: 'dimension',
+  space: 'dimension',
+  fontsize: 'dimension',
+  letterspacing: 'dimension',
+  paragraphspacing: 'dimension',
+  borderwidth: 'dimension',
+  radius: 'dimension',
+  borderradius: 'dimension',
+  blur: 'dimension',
+  // Numeric types
+  lineheight: 'number',
+  opacity: 'number',
+  zindex: 'number',
+  // String types
+  string: 'string',
+  text: 'string',
+  productcopy: 'string',
+  textcase: 'string',
+  textdecoration: 'string',
+  visibility: 'string',
+  // Legacy
+  font: 'font',
+}
+
 function mapType(tokenType: string): string {
-  const t = String(tokenType).toLowerCase()
-  
-  // DTCG standard types
-  if (t === 'color') return 'color'
-  if (t === 'typography') return 'typography'
-  if (t === 'fontfamily') return 'fontFamily'
-  if (t === 'fontweight') return 'fontWeight'
-  if (t === 'shadow') return 'shadow'
-  if (t === 'border') return 'border'
-  if (t === 'gradient') return 'gradient'
-  if (t === 'duration') return 'duration'
-  
-  // All dimension-like types → DTCG dimension
-  if (t === 'dimension' || t === 'measure') return 'dimension'
-  if (t === 'size') return 'dimension'
-  if (t === 'space') return 'dimension'
-  if (t === 'fontsize') return 'dimension'
-  if (t === 'lineheight') return 'dimension'
-  if (t === 'letterspacing') return 'dimension'
-  if (t === 'paragraphspacing') return 'dimension'
-  if (t === 'borderwidth') return 'dimension'
-  if (t === 'radius') return 'dimension'
-  if (t === 'borderradius') return 'dimension'
-  if (t === 'blur') return 'dimension'
-  
-  // Numeric types → DTCG number
-  if (t === 'opacity') return 'number'
-  if (t === 'zindex') return 'number'
-  
-  // String types → DTCG string
-  if (t === 'string' || t === 'text') return 'string'
-  if (t === 'productcopy') return 'string'
-  if (t === 'textcase') return 'string'
-  if (t === 'textdecoration') return 'string'
-  if (t === 'visibility') return 'string'
- 
-  // Legacy: 'Font' (combined family+weight) → custom type to preserve data
-  if (t === 'font') return 'font'
-  
-  // Fallback: return as-is (allows custom types to pass through)
-  return t
+  return DTCG_TYPE_MAP[String(tokenType).toLowerCase()] || String(tokenType).toLowerCase()
 }
 
 // ============================================================================
@@ -891,6 +827,26 @@ function mapType(tokenType: string): string {
 
 function safeName(name: string): string {
   return String(name || '').replace(/\W+/g, '-').toLowerCase()
+}
+
+function buildTokenMap(tokens: Array<Token>): Record<string, Token> {
+  const map: Record<string, Token> = {}
+  for (let i = 0; i < tokens.length; i++) {
+    map[tokens[i].id] = tokens[i]
+  }
+  return map
+}
+
+function buildFullGroupPath(group: TokenGroup | null): Array<string> {
+  if (!group) return []
+  const result: Array<string> = []
+  for (let i = 0; i < group.path.length; i++) {
+    result.push(group.path[i])
+  }
+  if (group.name && !group.isRoot) {
+    result.push(group.name)
+  }
+  return result
 }
 
 function findGroupForToken(token: Token, groups: Array<TokenGroup>): TokenGroup | null {
@@ -965,13 +921,6 @@ function isLineHeightToken(token: Token, groups: Array<TokenGroup>): boolean {
   }
   
   return false
-}
-
-function findThemeById(arr: Array<TokenTheme>, id: string): TokenTheme | null {
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i].id === id) return arr[i]
-  }
-  return null
 }
 
 function toArray<T>(input: any): Array<T> {

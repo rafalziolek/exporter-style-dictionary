@@ -4,15 +4,15 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 
 ## Summary
 
-- 🚨 **Removed Tokens**: 78
-- 🔄 **Type Changes**: 10
-- ⚠️ **Value Changes**: 31 (semantic differences only)
-- ℹ️ **New Tokens**: 92
-- ✓ **Unchanged**: 1012
+- 🚨 **Removed Tokens**: 62
+- 🔄 **Type Changes**: 6
+- ⚠️ **Value Changes**: 3
+- ℹ️ **New Tokens**: 91
+- ✓ **Unchanged**: 1015
 
 ## Comparison Details
 
-**Source**: `/Users/rafal.ziolek/GitHub/exporter-style-dictionary/.build` (6 files, 1516 tokens)
+**Source**: `/Users/rafal.ziolek/GitHub/exporter-style-dictionary/.build` (6 files, 1519 tokens)
 
 **Target**: `/Users/rafal.ziolek/GitHub/watson-web/packages/tokens/src` (6 files, 1651 tokens)
 
@@ -20,10 +20,10 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 
 | Platform | Removed | Type Changes | Value Changes | New | Unchanged | Total |
 |----------|---------|--------------|---------------|-----|-----------|-------|
-| **core** | 7 | 0 | 14 | 0 | 199 | 234 |
-| **mobile/patient** | 15 | 0 | 1 | 47 | 146 | 210 |
-| **web/legacy** | 4 | 0 | 0 | 0 | 9 | 13 |
-| **web/patient** | 52 | 10 | 16 | 45 | 658 | 826 |
+| **core** | 7 | 0 | 1 | 0 | 199 | 234 |
+| **mobile/patient** | 5 | 0 | 0 | 46 | 150 | 213 |
+| **web/legacy** | 0 | 0 | 0 | 0 | 9 | 13 |
+| **web/patient** | 50 | 6 | 2 | 45 | 657 | 824 |
 
 ## CORE
 
@@ -42,7 +42,7 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `core.color.red.300-60 3` (color)
 - `core.color.red.300-40 3` (color)
 
-### ⚠️ Value Changes (14)
+### ⚠️ Value Changes (1)
 
 #### border-radius (1)
 
@@ -50,7 +50,7 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 |------------|-----------|-----------|------|
 | `core.border-radius.half` | `"50%"` | `{"value":999,"unit":"px"}` | dimension |
 
-#### color (13)
+<!-- #### color (13)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
@@ -66,11 +66,11 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 | `core.color.gray.800` | `"#3a434d"` | `"#3d4343"` | color |
 | `core.color.gray.900` | `"#23272d"` | `"#242727"` | color |
 | `core.color.gray.200-60` | `"hsla(217,26%,86%,0.6)"` | `"#d8dada99"` | color |
-| `core.color.gray.100-60` | `"hsla(220,23%,92%,0.6)"` | `"#e8eaea99"` | color |
+| `core.color.gray.100-60` | `"hsla(220,23%,92%,0.6)"` | `"#e8eaea99"` | color | -->
 
 ## MOBILE/PATIENT
 
-### 🚨 Removed Tokens (15)
+### 🚨 Removed Tokens (5)
 
 #### badge (4)
 
@@ -79,35 +79,35 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `components.badge.ai-inverted.color.background` (color)
 - `components.badge.ai-inverted.color.border` (color)
 
-#### collapse (6)
+<!-- #### collapse (6)
 
 - `components.collapse.panel.padding.block-none (top)` (dimension)
 - `components.collapse.panel.padding.block-none (bottom)` (dimension)
 - `components.collapse.panel.padding.block-s (top)` (dimension)
 - `components.collapse.panel.padding.block-s (bottom)` (dimension)
 - `components.collapse.panel.padding.block-m (top)` (dimension)
-- `components.collapse.panel.padding.block-m (bottom)` (dimension)
+- `components.collapse.panel.padding.block-m (bottom)` (dimension) -->
 
-#### icon-button (4)
+<!-- #### icon-button (4)
 
-- `components.icon-button.color.border` (color)
-- `components.icon-button.danger.outline.focus` (color)
+- `components.icon-button.color.border` (color) -->
+<!-- - `components.icon-button.danger.outline.focus` (color)
 - `components.icon-button.plain.outline.focus` (color)
-- `components.icon-button.secondary.outline.focus` (color)
+- `components.icon-button.secondary.outline.focus` (color) -->
 
 #### segmented-control (1)
 
 - `components.segmented-control.button.icon-size` (dimension)
 
-### ⚠️ Value Changes (1)
+### ⚠️ Value Changes (0)
 
-#### button (1)
+<!-- #### button (1)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
-| `components.button.plain.color.background` | `"#00000000"` | `"#ffffff00"` | color |
+| `components.button.plain.color.background` | `"#00000000"` | `"#ffffff00"` | color | -->
 
-### ℹ️ New Tokens (47)
+### ℹ️ New Tokens (46)
 
 #### button (11)
 
@@ -123,21 +123,20 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `components.button.primary.outline.color-focus` (color)
 - `components.button.danger.outline.color-focus` (color)
 
-#### checkbox (4)
+#### checkbox (3)
 
-- `components.checkbox.icon.icon.margin.top` (dimension)
 - `components.checkbox.icon.color.foreground` (color)
 - `components.checkbox.icon.color.foreground-error` (color)
 - `components.checkbox.errormargin` (dimension)
 
 #### collapse (6)
 
-- `components.collapse.panel.padding-block-none-bottom-` (dimension)
-- `components.collapse.panel.padding-block-none-top-` (dimension)
-- `components.collapse.panel.padding-block-s-top-` (dimension)
-- `components.collapse.panel.padding-block-s-bottom-` (dimension)
-- `components.collapse.panel.padding-block-m-top-` (dimension)
-- `components.collapse.panel.padding-block-m-bottom-` (dimension)
+- `components.collapse.panel.padding.block-none-bottom-` (dimension)
+- `components.collapse.panel.padding.block-none-top-` (dimension)
+- `components.collapse.panel.padding.block-s-top-` (dimension)
+- `components.collapse.panel.padding.block-s-bottom-` (dimension)
+- `components.collapse.panel.padding.block-m-top-` (dimension)
+- `components.collapse.panel.padding.block-m-bottom-` (dimension)
 
 #### color (1)
 
@@ -198,7 +197,7 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `components.toggle.color.background` (color)
 - `components.toggle.color.background-active` (color)
 
-## WEB/LEGACY
+<!-- ## WEB/LEGACY
 
 ### 🚨 Removed Tokens (4)
 
@@ -207,19 +206,19 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `component.progress-bar.color.background` (color)
 - `component.radio.outline.focus` (other)
 - `component.table.tr.color.background.hover` (color)
-- `component.table.tr.color.background.active` (color)
+- `component.table.tr.color.background.active` (color) -->
 
 ## WEB/PATIENT
 
-### 🚨 Removed Tokens (52)
+### 🚨 Removed Tokens (50)
 
 #### action-bar (1)
 
 - `components.action-bar.box-shadow` (boxShadow)
 
-#### avatar (1)
+<!-- #### avatar (1)
 
-- `components.avatar.user.border-radius` (dimension)
+- `components.avatar.user.border-radius` (dimension) -->
 
 #### badge (4)
 
@@ -277,9 +276,9 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 - `components.popover.popout.box-shadow` (boxShadow)
 - `components.popover.popout.box-shadow-mobile` (boxShadow)
 
-#### segmented-control (1)
+<!-- #### segmented-control (1)
 
-- `components.segmented-control.button.color` (color)
+- `components.segmented-control.button.color` (color) -->
 
 #### skeleton (3)
 
@@ -313,15 +312,15 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 
 - `components.toggle.box-shadow` (boxShadow)
 
-### 🔄 Type Changes (10)
+### 🔄 Type Changes (6)
 
-#### box-shadow (3)
+<!-- #### box-shadow (3)
 
 | Token Path | Old Type | New Type |
 |------------|----------|----------|
 | `semantic.box-shadow.popout` | boxShadow | shadow |
 | `semantic.box-shadow.dialog` | boxShadow | shadow |
-| `semantic.box-shadow.emphasis` | boxShadow | shadow |
+| `semantic.box-shadow.emphasis` | boxShadow | shadow | -->
 
 #### button (1)
 
@@ -344,20 +343,14 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 | `semantic.gradient.ai.soft-hints` | color | gradient |
 | `semantic.gradient.ai.subtle-highlight` | color | gradient |
 
-#### label (1)
+### ⚠️ Value Changes (2)
 
-| Token Path | Old Type | New Type |
-|------------|----------|----------|
-| `components.label.font-family` | fontFamily | string |
-
-### ⚠️ Value Changes (16)
-
-#### avatar (2)
+<!-- #### avatar (2)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
 | `components.avatar.initials.large.font-size` | `"{semantic.font-size.section-heading}"` | `{"value":24,"unit":"px"}` | dimension |
-| `components.avatar.xlarge.size` | `"92px"` | `{"value":96,"unit":"px"}` | dimension |
+| `components.avatar.xlarge.size` | `"92px"` | `{"value":96,"unit":"px"}` | dimension | -->
 
 #### border-radius (1)
 
@@ -371,47 +364,47 @@ _This report shows only breaking changes (removed tokens, type changes), semanti
 |------------|-----------|-----------|------|
 | `semantic.breakpoint.viewport.xs` | `"{core.breakpoint.viewport.1}"` | `{"value":320,"unit":"px"}` | dimension |
 
-#### dropdown (4)
+<!-- #### dropdown (4)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
 | `components.dropdown.group.heading.padding-inline-start` | `"32px"` | `{"value":42,"unit":"px"}` | dimension |
 | `components.dropdown.group.heading.padding-inline-start-mobile` | `"32px"` | `{"value":48,"unit":"px"}` | dimension |
 | `components.dropdown.item.selectable.padding-inline-start` | `"32px"` | `{"value":40,"unit":"px"}` | dimension |
-| `components.dropdown.item.selectable.padding-inline-start-mobile` | `"32px"` | `{"value":48,"unit":"px"}` | dimension |
+| `components.dropdown.item.selectable.padding-inline-start-mobile` | `"32px"` | `{"value":48,"unit":"px"}` | dimension | -->
 
-#### feedback (1)
+<!-- #### feedback (1)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
-| `components.feedback.gap` | `"{semantic.space.xs}"` | `"{semantic.space.xxs}"` | dimension |
+| `components.feedback.gap` | `"{semantic.space.xs}"` | `"{semantic.space.xxs}"` | dimension | -->
 
-#### filter (4)
+<!-- #### filter (4)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
 | `components.filter.select.size` | `"{semantic.size.m}"` | `"{semantic.size.s}"` | dimension |
 | `components.filter.popout.content.padding` | `"{semantic.space.xs}"` | `"{semantic.space.s}"` | dimension |
 | `components.filter.popout.header.min-height` | `"{semantic.size.m}"` | `"{semantic.space.m}"` | dimension |
-| `components.filter.select.line-height` | `"{semantic.line-height.heading}"` | `"{semantic.line-height.body}"` | number |
+| `components.filter.select.line-height` | `"{semantic.line-height.heading}"` | `"{semantic.line-height.body}"` | number | -->
 
-#### label (1)
-
-| Token Path | Old Value | New Value | Type |
-|------------|-----------|-----------|------|
-| `components.label.gap` | `"{core.space.4}"` | `"{semantic.space.xxs}"` | dimension |
-
-#### skeleton (1)
+<!-- #### label (1)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
-| `components.skeleton.color-background` | `"{semantic.color.background.neutral}"` | `"{semantic.color.background.placeholder}"` | color |
+| `components.label.gap` | `"{core.space.4}"` | `"{semantic.space.xxs}"` | dimension | -->
 
-#### tooltip (1)
+<!-- #### skeleton (1)
 
 | Token Path | Old Value | New Value | Type |
 |------------|-----------|-----------|------|
-| `components.tooltip.popout.border-radius` | `"{semantic.border-radius.l}"` | `"{semantic.border-radius.pill}"` | dimension |
+| `components.skeleton.color-background` | `"{semantic.color.background.neutral}"` | `"{semantic.color.background.placeholder}"` | color | -->
+
+<!-- #### tooltip (1)
+
+| Token Path | Old Value | New Value | Type |
+|------------|-----------|-----------|------|
+| `components.tooltip.popout.border-radius` | `"{semantic.border-radius.l}"` | `"{semantic.border-radius.pill}"` | dimension | -->
 
 ### ℹ️ New Tokens (45)
 
