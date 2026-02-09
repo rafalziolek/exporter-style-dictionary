@@ -6,13 +6,19 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "npx webpack --mode=development --watch",
-    "build": "npx webpack --mode=development"
+    "build": "npx webpack --mode=development",
+    "validate-tokens": "NODE_PATH=./node_modules ts-node ../tools/validate-tokens.ts",
+    "validate:ci": "npm run validate-tokens -- --ci --fail-on-breaking"
   },
   "author": "Supernova.io",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^25.2.1",
+    "chalk": "^4.1.2",
+    "minimist": "^1.2.8",
     "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"

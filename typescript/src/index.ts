@@ -271,7 +271,7 @@ function buildTree(
     }
     
     // Skip tokens with underscore in name (internal/private tokens)
-    if (token.name.indexOf('_') !== -1) {
+    if (token.name.indexOf('_') !==-1) {
       continue
     }
 
@@ -348,24 +348,34 @@ function formatToken(
   groups: Array<TokenGroup>
 ): any {
   const value = (token as any).value
-
+  
+  // Check for font-weight token (Figma imports these incorrectly as dimensions)
+  const isFontWeight = isFontWeightToken(token, groups)
+  
+  // Check for line-height token (Figma imports these incorrectly as dimensions)
+  const isLineHeight = isLineHeightToken(token, groups)
+  
   // Check for top-level reference FIRST
   if (value && value.referencedTokenId) {
     const refToken = tokenById[value.referencedTokenId]
     if (refToken) {
       return {
         $value: '{' + buildRefPath(refToken, groups) + '}',
-        $type: mapType(token.tokenType),
+        $type: isFontWeight ? 'fontWeight' : isLineHeight ? 'number' : mapType(token.tokenType),
       }
     }
   }
 
-  // Format raw value
-  const formatted = formatValue(value, token.tokenType, tokenById, groups)
+  // Format raw value - handle font-weight and line-height specially
+  const formatted = isFontWeight 
+    ? formatFontWeightValue(value)
+    : isLineHeight
+    ? formatLineHeightValue(value)
+    : formatValue(value, token.tokenType, tokenById, groups)
   
   const result: any = {
     $value: formatted,
-    $type: mapType(token.tokenType),
+    $type: isFontWeight ? 'fontWeight' : isLineHeight ? 'number' : mapType(token.tokenType),
   }
 
   if (token.description && token.description.length > 0) {
@@ -418,7 +428,8 @@ function formatValue(
     return value.text
   }
 
-  // Font: has .family
+  // Font: has .family (legacy combined font+weight token)
+  // Maps to custom 'font' type to preserve both family and weight
   if (typeof value.family === 'string') {
     return {
       family: value.family,
@@ -453,6 +464,42 @@ function formatValue(
 
   // Fallback: return as-is
   return value
+}
+
+function formatFontWeightValue(value: any): number {
+  // Extract numeric value from dimension object
+  if (value && typeof value === 'object') {
+    const measure = value.measure ?? value.value
+    if (typeof measure === 'number') {
+      return measure  // Return plain number, no unit
+    }
+  }
+  
+  // Fallback to direct number
+  if (typeof value === 'number') {
+    return value
+  }
+  
+  // Default fallback
+  return 400
+}
+
+function formatLineHeightValue(value: any): number {
+  // Extract numeric value from dimension object
+  if (value && typeof value === 'object') {
+    const measure = value.measure ?? value.value
+    if (typeof measure === 'number') {
+      return measure  // Return plain number, no unit (e.g., 1.15, not "1.15px")
+    }
+  }
+  
+  // Fallback to direct number
+  if (typeof value === 'number') {
+    return value
+  }
+  
+  // Default fallback (normal line-height)
+  return 1.5
 }
 
 // ============================================================================
@@ -796,15 +843,45 @@ function buildRefPath(token: Token, groups: Array<TokenGroup>): string {
 
 function mapType(tokenType: string): string {
   const t = String(tokenType).toLowerCase()
+  
+  // DTCG standard types
   if (t === 'color') return 'color'
-  if (t === 'dimension' || t === 'measure') return 'dimension'
   if (t === 'typography') return 'typography'
+  if (t === 'fontfamily') return 'fontFamily'
+  if (t === 'fontweight') return 'fontWeight'
   if (t === 'shadow') return 'shadow'
   if (t === 'border') return 'border'
-  if (t === 'radius') return 'borderRadius'
   if (t === 'gradient') return 'gradient'
-  if (t === 'font') return 'fontFamily'
-  if (t === 'text' || t === 'string') return 'string'
+  if (t === 'duration') return 'duration'
+  
+  // All dimension-like types → DTCG dimension
+  if (t === 'dimension' || t === 'measure') return 'dimension'
+  if (t === 'size') return 'dimension'
+  if (t === 'space') return 'dimension'
+  if (t === 'fontsize') return 'dimension'
+  if (t === 'lineheight') return 'dimension'
+  if (t === 'letterspacing') return 'dimension'
+  if (t === 'paragraphspacing') return 'dimension'
+  if (t === 'borderwidth') return 'dimension'
+  if (t === 'radius') return 'dimension'
+  if (t === 'borderradius') return 'dimension'
+  if (t === 'blur') return 'dimension'
+  
+  // Numeric types → DTCG number
+  if (t === 'opacity') return 'number'
+  if (t === 'zindex') return 'number'
+  
+  // String types → DTCG string
+  if (t === 'string' || t === 'text') return 'string'
+  if (t === 'productcopy') return 'string'
+  if (t === 'textcase') return 'string'
+  if (t === 'textdecoration') return 'string'
+  if (t === 'visibility') return 'string'
+ 
+  // Legacy: 'Font' (combined family+weight) → custom type to preserve data
+  if (t === 'font') return 'font'
+  
+  // Fallback: return as-is (allows custom types to pass through)
   return t
 }
 
@@ -824,6 +901,70 @@ function findGroupForToken(token: Token, groups: Array<TokenGroup>): TokenGroup 
     }
   }
   return null
+}
+
+function isFontWeightToken(token: Token, groups: Array<TokenGroup>): boolean {
+  // Only check dimension-type tokens (performance optimization)
+  const type = String(token.tokenType).toLowerCase()
+  if (type !== 'dimension' && type !== 'measure') {
+    return false
+  }
+  
+  // Check group path for 'font-weight'
+  const group = findGroupForToken(token, groups)
+  const fullPath = group ? [...group.path, group.name].join('.').toLowerCase() : ''
+  const tokenName = token.name.toLowerCase()
+  
+  const hasFontWeightInPath = fullPath.includes('font-weight') || 
+                               fullPath.includes('fontweight')
+  const hasFontWeightInName = tokenName.includes('font-weight') || 
+                               tokenName.includes('fontweight')
+  
+  // Must have font-weight in path or name
+  if (!hasFontWeightInPath && !hasFontWeightInName) {
+    return false
+  }
+  
+  // Validate value is in valid font-weight range (100-900)
+  const value = (token as any).value
+  const measure = value?.measure ?? value?.value
+  if (typeof measure === 'number' && measure >= 100 && measure <= 900) {
+    return true
+  }
+  
+  return false
+}
+
+function isLineHeightToken(token: Token, groups: Array<TokenGroup>): boolean {
+  // Check dimension-type tokens AND LineHeight type
+  const type = String(token.tokenType).toLowerCase()
+  if (type !== 'dimension' && type !== 'measure' && type !== 'lineheight') {
+    return false
+  }
+  
+  // Check group path for 'line-height'
+  const group = findGroupForToken(token, groups)
+  const fullPath = group ? [...group.path, group.name].join('.').toLowerCase() : ''
+  const tokenName = token.name.toLowerCase()
+  
+  const hasLineHeightInPath = fullPath.includes('line-height') || 
+                               fullPath.includes('lineheight')
+  const hasLineHeightInName = tokenName.includes('line-height') || 
+                               tokenName.includes('lineheight')
+  
+  // Must have line-height in path or name
+  if (!hasLineHeightInPath && !hasLineHeightInName) {
+    return false
+  }
+  
+  // Validate value is in valid line-height range (typically 0-3)
+  const value = (token as any).value
+  const measure = value?.measure ?? value?.value
+  if (typeof measure === 'number' && measure >= 0 && measure <= 10) {
+    return true
+  }
+  
+  return false
 }
 
 function findThemeById(arr: Array<TokenTheme>, id: string): TokenTheme | null {

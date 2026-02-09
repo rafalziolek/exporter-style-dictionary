@@ -35,7 +35,36 @@ declare global {
   //
   // Enums
   //
-  type TokenType = 'Color' | 'Typography' | 'Radius' | 'Font' | 'Measure' | 'Shadow' | 'Border' | 'Gradient' | 'Text'
+  type TokenType = 
+    | 'Color' 
+    | 'Typography' 
+    | 'Dimension' 
+    | 'Size' 
+    | 'Space' 
+    | 'Opacity'
+    | 'FontSize' 
+    | 'LineHeight' 
+    | 'LetterSpacing' 
+    | 'ParagraphSpacing'
+    | 'BorderWidth' 
+    | 'Radius' 
+    | 'Duration' 
+    | 'ZIndex'
+    | 'Shadow' 
+    | 'Border' 
+    | 'Gradient' 
+    | 'String' 
+    | 'ProductCopy'
+    | 'FontFamily' 
+    | 'FontWeight' 
+    | 'TextCase' 
+    | 'TextDecoration'
+    | 'Visibility' 
+    | 'Blur'
+    // Legacy types (may still appear in older design systems)
+    | 'Font' 
+    | 'Measure' 
+    | 'Text'
   
   type SourceType = 'Supernova' | 'Figma'
 
